@@ -5,14 +5,14 @@
 import torch
 import argparse
 import torch.nn as nn
-from transformers import  AutoTokenizer, AutoModel
+from transformers import  AutoTokenizer, AutoModelForMaskedLM
 import numpy as np
 parser = argparse.ArgumentParser('generate target embeddings from alignments')
 parser.add_argument('--tgt_tokenizer', default='', help='path to target tokenizer')
 parser.add_argument('--src_tokenizer', default='', help='path to source tokenizer')
 parser.add_argument('--src_model', default='pytorch.bin', help='source pre-trained file')
 parser.add_argument('--prob', default='', help='word translation probability')
-parser.add_argument('--tgt_model', default='', help='save the target model')
+parser.add_argument('--tgt_path', default='', help='save the target model')
 params = parser.parse_args()
 print(params)
 
@@ -29,12 +29,7 @@ elif 'bert' in params.src_model:
         'output_weight': 'cls.predictions.decoder.weight',
         'output_bias': 'cls.predictions.bias'
     }
-elif 'gpt' in params.src_model:
-    MAP = {
-        'word_embeddings': 'transformer.wte.weight',
-        'output_weight': 'lm_head.weight',
-        'output_bias': 'lm_head.bias'
-    }
+
 
 
 def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
@@ -83,7 +78,8 @@ def init_tgt(params):
         prob = torch.load(params.prob)
 
     print(f'| load English pre-trained model: {params.src_model}')
-    model = AutoModel.from_pretrained(params.src_model)
+    model = AutoModelForMaskedLM.from_pretrained(params.src_model)
+    config = model.config
     model.save_pretrained(params.src_model+"_")
     model = torch.load(params.src_model+"_/pytorch_model.bin")
     src_tokenizer = AutoTokenizer.from_pretrained(params.src_tokenizer)
@@ -111,7 +107,15 @@ def init_tgt(params):
 
     # save the model
     # model.save_pretrained(params.tgt_model)
-    torch.save(model, params.tgt_model)
+    torch.save(model, params.tgt_path+"/pytorch_model.bin")
+    config.vocab_size = len(tgt_tokenizer.get_vocab())
+    config.save_pretrained(params.tgt_path)
+    tgt_tokenizer.save_pretrained(params.tgt_path)
+
+    #fixing possible mismatch
+    model = AutoModelForMaskedLM.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True)
+    model.save_pretrained(params.tgt_path)
+
 
 
 if __name__ == '__main__':
