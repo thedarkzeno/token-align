@@ -5,7 +5,7 @@
 import torch
 import argparse
 import torch.nn as nn
-from transformers import  AutoTokenizer, AutoModelForMaskedLM
+from transformers import  AutoTokenizer, AutoModelForMaskedLM, CLIPTextModel
 import numpy as np
 parser = argparse.ArgumentParser('generate target embeddings from alignments')
 parser.add_argument('--tgt_tokenizer', default='', help='path to target tokenizer')
@@ -29,6 +29,10 @@ elif 'bert' in params.src_model:
         'output_weight': 'cls.predictions.decoder.weight',
         'output_bias': 'cls.predictions.bias'
     }
+elif 'clip' in params.src_model:
+    MAP = {
+        'word_embeddings': 'text_model.embeddings.token_embedding.weight',
+    }
 
 
 
@@ -38,7 +42,10 @@ def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
 
     # init with zero
     tgt_embs = src_embs.new_empty(num_tgt, emb_dim)
-    tgt_bias = src_bias.new_zeros(num_tgt)
+    if src_bias != None:
+      tgt_bias = src_bias.new_zeros(num_tgt)
+    else:
+      tgt_bias = None
     nn.init.normal_(tgt_embs, mean=0, std=emb_dim ** -0.5)
 
     # initialize randomly
@@ -63,7 +70,10 @@ def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
         # get index of target word t
         ti = tgt_tokenizer.convert_tokens_to_ids(t)
         tgt_embs[ti] = px @ src_embs[ix]
-        tgt_bias[ti] = px.dot(src_bias[ix])
+        if tgt_bias != None:
+          tgt_bias[ti] = px.dot(src_bias[ix])
+        else:
+          tgt_bias = None
 
     return tgt_embs, tgt_bias
 
@@ -78,15 +88,22 @@ def init_tgt(params):
         prob = torch.load(params.prob)
 
     print(f'| load English pre-trained model: {params.src_model}')
-    model = AutoModelForMaskedLM.from_pretrained(params.src_model)
+    if 'clip' not in params.src_model:
+      model = AutoModelForMaskedLM.from_pretrained(params.src_model)
+    else:
+      model = CLIPTextModel.from_pretrained(params.src_model)
     config = model.config
     model.save_pretrained(params.src_model+"_")
     model = torch.load(params.src_model+"_/pytorch_model.bin")
     src_tokenizer = AutoTokenizer.from_pretrained(params.src_tokenizer)
-
+    
+    
     # get English word-embeddings and bias
     src_embs = model[MAP['word_embeddings']]
-    src_bias = model[MAP['output_bias']]
+    if 'clip' not in params.src_model:
+        src_bias = model[MAP['output_bias']]
+    else:
+      src_bias = None
 
     # initialize target tokenizer, we always use BertWordPieceTokenizer for the target language
     tgt_tokenizer = AutoTokenizer.from_pretrained(
@@ -96,14 +113,15 @@ def init_tgt(params):
     tgt_embs, tgt_bias = guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=prob)
 
     # checksum for debugging purpose
-    print(' checksum src | embeddings {:.5f} - bias {:.5f}'.format(
-        src_embs.norm().item(), src_bias.norm().item()))
+    # print(' checksum src | embeddings {:.5f} - bias {:.5f}'.format(
+    #     src_embs.norm().item(), src_bias.norm().item()))
     model[MAP['word_embeddings']] = tgt_embs
-    model[MAP['output_bias']] = tgt_bias
-    model[MAP['output_weight']] = model[MAP['word_embeddings']]
-    print(' checksum tgt | embeddings {:.5f} - bias {:.5f}'.format(
-        model[MAP['word_embeddings']].norm().item(),
-        model[MAP['output_bias']].norm().item()))
+    if 'clip' not in params.src_model:
+      model[MAP['output_bias']] = tgt_bias
+      model[MAP['output_weight']] = model[MAP['word_embeddings']]
+    # print(' checksum tgt | embeddings {:.5f} - bias {:.5f}'.format(
+    #     model[MAP['word_embeddings']].norm().item(),
+    #     model[MAP['output_bias']].norm().item()))
 
     # save the model
     # model.save_pretrained(params.tgt_model)
@@ -113,7 +131,10 @@ def init_tgt(params):
     tgt_tokenizer.save_pretrained(params.tgt_path)
 
     #fixing possible mismatch
-    model = AutoModelForMaskedLM.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True)
+    if 'clip' not in params.src_model:
+      model = AutoModelForMaskedLM.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True)
+    else:
+      model = CLIPTextModel.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True)
     model.save_pretrained(params.tgt_path)
 
 
