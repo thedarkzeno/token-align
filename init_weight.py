@@ -72,7 +72,7 @@ def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
             j = src_tokenizer.convert_tokens_to_ids(e)
             ix.append(j)
             px.append(p)
-        px = torch.tensor(px).to(src_embs.device)
+        px = torch.tensor(px).to(src_embs.device, src_embs.dtype)
         # get index of target word t
         ti = tgt_tokenizer.convert_tokens_to_ids(t)
         tgt_embs[ti] = px @ src_embs[ix]
