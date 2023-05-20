@@ -97,7 +97,7 @@ def init_tgt(params):
     if 'clip' not in params.src_model and "RedPajama" not in params.src_model:
       model = AutoModelForMaskedLM.from_pretrained(params.src_model)
     elif "RedPajama" in params.src_model:
-      model = AutoModelForCausalLM.from_pretrained(params.src_model)
+      model = AutoModelForCausalLM.from_pretrained(params.src_model, torch_dtype=torch.float16)
     else:
       model = CLIPTextModel.from_pretrained(params.src_model)
     config = model.config
