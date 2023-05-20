@@ -140,7 +140,9 @@ def init_tgt(params):
     tgt_tokenizer.save_pretrained(params.tgt_path)
 
     #fixing possible mismatch
-    if 'clip' not in params.src_model:
+    if "RedPajama" in params.src_model:
+      model = AutoModelForCausalLM.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True, torch_dtype=torch.float16)
+    elif 'clip' not in params.src_model:
       model = AutoModelForMaskedLM.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True)
     else:
       model = CLIPTextModel.from_pretrained(params.tgt_path, ignore_mismatched_sizes=True)
