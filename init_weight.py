@@ -45,6 +45,7 @@ elif 'RedPajama' in params.src_model:
 def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
     emb_dim = src_embs.size(1)
     num_tgt = len(tgt_tokenizer.get_vocab())
+    dtype = src_embs.dtype
 
     # init with zero
     tgt_embs = src_embs.new_empty(num_tgt, emb_dim)
@@ -62,7 +63,7 @@ def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
 
     num_src_per_tgt = np.array([len(x) for x in prob.values()]).mean()
     print(f'| # aligned src / tgt: {num_src_per_tgt:.5}')
-
+    
     for t, ws in prob.items():
         if not tgt_tokenizer.convert_tokens_to_ids(t): continue
 
@@ -72,12 +73,12 @@ def guess(src_embs, src_bias, tgt_tokenizer, src_tokenizer, prob=None):
             j = src_tokenizer.convert_tokens_to_ids(e)
             ix.append(j)
             px.append(p)
-        px = torch.tensor(px).to(src_embs.device, src_embs.dtype)
+        px = torch.tensor(px).to(src_embs.device)
         # get index of target word t
         ti = tgt_tokenizer.convert_tokens_to_ids(t)
-        tgt_embs[ti] = px @ src_embs[ix]
+        tgt_embs[ti] = (px @ src_embs[ix].to(px.dtype)).to(dtype)
         if tgt_bias != None:
-          tgt_bias[ti] = px.dot(src_bias[ix])
+          tgt_bias[ti] = px.dot(src_bias[ix].to(px.dtype)).to(dtype)
         else:
           tgt_bias = None
 
