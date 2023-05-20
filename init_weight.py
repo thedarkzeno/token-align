@@ -5,7 +5,7 @@
 import torch
 import argparse
 import torch.nn as nn
-from transformers import  AutoTokenizer, AutoModelForMaskedLM, CLIPTextModel
+from transformers import  AutoTokenizer, AutoModelForMaskedLM, CLIPTextModel, AutoModelForCausalLM
 import numpy as np
 parser = argparse.ArgumentParser('generate target embeddings from alignments')
 parser.add_argument('--tgt_tokenizer', default='', help='path to target tokenizer')
@@ -94,8 +94,10 @@ def init_tgt(params):
         prob = torch.load(params.prob)
 
     print(f'| load English pre-trained model: {params.src_model}')
-    if 'clip' not in params.src_model:
+    if 'clip' not in params.src_model and "RedPajama" not in params.src_model:
       model = AutoModelForMaskedLM.from_pretrained(params.src_model)
+    elif "RedPajama" in params.src_model:
+      model = AutoModelForCausalLM.from_pretrained(params.src_model)
     else:
       model = CLIPTextModel.from_pretrained(params.src_model)
     config = model.config
