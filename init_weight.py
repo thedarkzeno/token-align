@@ -108,7 +108,7 @@ def init_tgt(params):
     
     # get English word-embeddings and bias
     src_embs = model[MAP['word_embeddings']]
-    if 'clip' not in params.src_model:
+    if 'clip' not in params.src_model and "RedPajama" not in params.src_model:
         src_bias = model[MAP['output_bias']]
     else:
       src_bias = None
@@ -125,7 +125,8 @@ def init_tgt(params):
     #     src_embs.norm().item(), src_bias.norm().item()))
     model[MAP['word_embeddings']] = tgt_embs
     if 'clip' not in params.src_model:
-      model[MAP['output_bias']] = tgt_bias
+      if "RedPajama" not in params.src_model:
+        model[MAP['output_bias']] = tgt_bias
       model[MAP['output_weight']] = model[MAP['word_embeddings']]
     # print(' checksum tgt | embeddings {:.5f} - bias {:.5f}'.format(
     #     model[MAP['word_embeddings']].norm().item(),
