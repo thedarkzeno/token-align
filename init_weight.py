@@ -33,6 +33,12 @@ elif 'clip' in params.src_model:
     MAP = {
         'word_embeddings': 'text_model.embeddings.token_embedding.weight',
     }
+elif 'RedPajama' in params.src_model:
+    MAP = {
+        'word_embeddings': 'gpt_neox.embed_in.weight',
+        'output_weight': 'embed_out.weight',
+        'output_bias': 'embed_out.bias'
+    }
 
 
 
